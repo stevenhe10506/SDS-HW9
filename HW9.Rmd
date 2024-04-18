@@ -1,0 +1,119 @@
+---
+title: "HW9"
+author: "Steven He"
+date: "2024-04-11"
+output: pdf_document
+---
+
+```{r setup, include=FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(mosaic)
+library(stringr)
+library(kableExtra)
+library(MatchIt)
+options(scipen=999)
+```
+
+## Question 1 
+### Part 1
+
+```{r echo = FALSE}
+turn <- read.csv("turnout.csv")
+prop(voted1998~GOTV_call, data = turn)
+prop.test(voted1998~GOTV_call, data= turn)
+```
+The proportion of people who received GOTV call who also voted 1998 is .648, and the proportion of those who did not receive GOTV call and voted was .444, which means based on our current sample people who received the GOTV call are 20.4% more likely to vote. The 95% confidence interval of the difference of proportions is .1411 to .2659, and our sample has a p-value of 3.122e-10. 
+
+### Part 2
+
+```{r echo = FALSE}
+ggplot(turn) + geom_boxplot(aes(x=factor(GOTV_call), y =AGE)) + labs(x = "GOTV_call", title = "Boxplot of Age over GOTV_Call")
+ggplot(turn) + geom_boxplot(aes(x=factor(voted1998), y =AGE)) + labs(x = "Person voted in 1998", title = "Boxplot of Age over voted1998")
+
+GOTV_party = turn %>%
+  group_by(GOTV_call) %>%
+  summarize(prop_party = prop(MAJORPTY))
+
+voted_party = turn %>%
+  group_by(voted1998) %>%
+  summarize(prop_party = prop(MAJORPTY))
+
+ggplot(GOTV_party) +
+  geom_col(aes(x = factor(GOTV_call), y = prop_party)) + labs(x = "GOTV_call", y = "Proportion of Voters who are in Majority Party", title = "Bar Chart of Majority Party Proportion over GOTV_call")
+
+ggplot(voted_party) +
+  geom_col(aes(x = factor(voted1998), y = prop_party)) + labs(x = "Person voted in 1998", y = "Proportion of Voters who are in Majority Party", title = "Bar Chart of Majority Party Proportion over voted1998")
+
+GOTV_1996 = turn %>%
+  group_by(GOTV_call) %>%
+  summarize(prop_1996 = prop(voted1996))
+
+voted_1996 = turn %>%
+  group_by(voted1998) %>%
+  summarize(prop_1996 = prop(voted1996))
+
+ggplot(GOTV_1996) +
+  geom_col(aes(x = factor(GOTV_call), y = prop_1996))+ labs(x = "GOTV_call", y = "Proportion of Voters who voted in 1996", title = "Bar Chart of 1996 voter Proportion over GOTV_call")
+
+ggplot(voted_1996) +
+  geom_col(aes(x = factor(voted1998), y = prop_1996)) + labs(x = "Person voted in 1998", y = "Proportion of Voters who voted in 1996", title = "Bar Chart of 1996 voter Proportion Proportion over voted1998")
+```
+Based on the graphs above, we can see evidence that AGE, voted1996, and MAJORPTY are all confounders. Confounding variables are variables that effect both the predictor adn the response variables, which are GOTV_call and voted1998 respectively. We can see in the graphs that both GOTV_call and voted1998 have a different distribution of the possible confounders. For example, people who received the GOTV call and who voted in 1998 were older on average. People who received the call and people who voted had a higher proportion of of being in the majority party. People who received the call and people who voted had a higher proportion of people who voted in 1996. This shows that AGE, voted1997, and MAJORPTY have a relationship with both GOTV_call and voted_1998, and are all confounders which prevent the difference observed from representing the true casual effect. 
+
+### Part 3
+
+```{r echo = FALSE}
+turn_matched <- matchit(GOTV_call~voted1996+AGE+MAJORPTY, data = turn, ratio = 5)%>% match.data
+prop(voted1996~GOTV_call, data = turn_matched)
+mean(AGE~GOTV_call, data = turn_matched)
+
+prop(MAJORPTY~GOTV_call, data = turn_matched)
+prop(voted1998~GOTV_call, data = turn_matched)
+
+prop(voted1998~GOTV_call, data = turn_matched)
+prop.test(GOTV_call~voted1998, data = turn_matched)
+
+
+```
+After creating a matched data set to adjust for the confounders and taking a 95% confidence interval, we are 95% confident that the true difference in proportions of voters who did and didn't get the GOTV call is .003 to .081. Our sample difference has a p-value of .0379 which is statistically significant. We can conclude that the GOTV call does increase the proportion of voters, but to a lesser extent that initially observed since our matched interval contains smaller values and our matched p-value is smaller, which means the confounders played a significant role in effecting the rate of voters and the rate of GOTV calls. 
+
+## Question 2 
+### Part 1
+```{r echo = FALSE}
+solder <- read.csv("solder.csv")
+ggplot(solder, aes(x=factor(Opening), y=skips)) + 
+  geom_jitter() +
+  stat_summary(fun='mean', color='darkorange') 
+mean(skips~Opening, data = solder)
+```
+The graph shows the number of skips versus the size of the opening. The mean skips for a large opening is 1.533, the mean skips for a medium opening is 3.57, and the mean skips for large opening is 11.486. 
+
+```{r echo = FALSE}
+ggplot(solder, aes(x=factor(Solder), y=skips)) + 
+  geom_jitter() +
+  stat_summary(fun='mean', color='darkorange')
+mean(skips~Solder, data = solder)
+
+```
+The graph shows the number of skips versus the thickness of solder. The mean skips for a thick solder is 2.904, the mean skips for a thin solder is 8.155.
+
+### Part 2
+```{r echo = FALSE}
+soldermodel <- lm(skips~Solder+Opening+Solder:Opening, data = solder)
+t <- data.frame(confint(soldermodel, level = .95)) 
+t$estimate <- coef(soldermodel)
+t %>% 
+  kbl() %>%
+  kable_styling()
+```
+
+### Part 3
+
+We have a baseline skip count of .39 for when the opening is not small or medium, and when the solder thickness is not thin. The main effect for the SolderThin variable is 2.28. The main effect for the OpeningM variable is 2.41. The main effect for the OpeningS variable is 5.12. The interaction effect for SolderThin and OpeningM is -.74, or if the solder is thin and the opening is medium there would be .74 less skips than what is expected from the combined effects of both. The interaction effect for SolderThin and OpeningS is 9.65, or if the solder is thin and the opening is small there would be 9.65 more skips than what is expected from the combined effects of both. 
+
+### Part 4
+
+I would recommend the thin solder and a thick opening to minimize the skips based on our model. In these conditions, all of the effects will be annihilated, resulting in only the intercept, which is the smallest possible value.  
